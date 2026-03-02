@@ -59,6 +59,11 @@ await app.RunAsync(async (CoconaAppContext ctx) =>
     appConfig.MqttPw,
     appConfig.DevMode ? "FiatChampDEV" : "FiatChamp");
 
+  Log.Information("Config loaded. PinSet={PinSet} PinLen={PinLen} PinEncoding={Enc}",
+      appConfig.IsPinSet(),
+      appConfig.FiatPin?.Trim().Length ?? 0,
+      appConfig.PinEncoding);
+
   await mqttClient.Connect();
 
   while (!ctx.CancellationToken.IsCancellationRequested)
@@ -241,6 +246,17 @@ await app.RunAsync(async (CoconaAppContext ctx) =>
   }
 });
 
+string EncodePin(string p)
+{
+  var mode = (appConfig.PinEncoding ?? "base64").Trim().ToLowerInvariant();
+  return mode switch
+  {
+    "raw" => p,
+    "base64" => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(p)),
+    _ => p
+  };
+}
+
 async Task<bool> TrySendCommand(IFiatClient fiatClient, FiatCommand command, string vin)
 {
   Log.Information("SEND COMMAND {0}: ", command.Message);
@@ -250,7 +266,17 @@ async Task<bool> TrySendCommand(IFiatClient fiatClient, FiatCommand command, str
     throw new Exception("PIN NOT SET");
   }
 
-  var pin = appConfig.FiatPin;
+  var rawPin = appConfig.FiatPin?.Trim();
+
+  if (string.IsNullOrWhiteSpace(rawPin))
+  {
+    throw new Exception("PIN NOT SET");
+  }
+
+  Log.Information("PIN present. len={Len} numeric={Numeric} encoding={Enc}",
+      rawPin.Length,
+      rawPin.All(char.IsDigit),
+      appConfig.PinEncoding);
 
   if (command.IsDangerous && !appConfig.EnableDangerousCommands)
   {
@@ -258,6 +284,11 @@ async Task<bool> TrySendCommand(IFiatClient fiatClient, FiatCommand command, str
                 "Set \"EnableDangerousCommands\" option if you want to use it. ", command.Message);
     return false;
   }
+
+  var pin = EncodePin(rawPin);
+
+    Log.Information("PIN encoding applied. rawLen={RawLen} sentLen={SentLen} mode={Mode}",
+      rawPin.Length, pin.Length, appConfig.PinEncoding);
 
   try
   {
@@ -267,7 +298,7 @@ async Task<bool> TrySendCommand(IFiatClient fiatClient, FiatCommand command, str
   }
   catch (Exception e)
   {
-    Log.Error("Command: {0} ERROR. Maybe wrong pin?", command.Message);
+    Log.Error(e, "Command: {Command} ERROR", command.Message);
     Log.Debug("{0}", e);
     return false;
   }

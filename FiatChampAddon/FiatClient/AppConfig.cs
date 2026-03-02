@@ -28,6 +28,7 @@ public record AppConfig
   public bool DevMode { get; set; } = false;
   public bool UseFakeApi { get; set; } = false;
   public bool Debug { get; set; } = false;
+  public string PinEncoding { get; set; } = "base64";
 
   public string ToStringWithoutSecrets()
   {
