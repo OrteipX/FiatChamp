@@ -596,7 +596,6 @@ public class FiatClient : IFiatClient
     var vehicleResponse = await _apiUrl
       .WithClient(_defaultHttpClient)
       .AppendPathSegments("v4", "accounts", userUid, "vehicles")
-      .SetQueryParam("locale", _locale)
       .WithHeaders(WithAwsDefaultParameter(_apiKey))
       .AwsSign(awsCredentials, _awsEndpoint)
       .GetJsonAsync<VehicleResponse>();
