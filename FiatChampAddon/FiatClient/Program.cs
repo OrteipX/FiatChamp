@@ -268,6 +268,8 @@ async Task<bool> TrySendCommand(IFiatClient fiatClient, FiatCommand command, str
 
   var rawPin = appConfig.FiatPin?.Trim();
 
+  Log.Information("PIN looksBase64={LooksB64}", rawPin.EndsWith("==") && rawPin.Length % 4 == 0);
+
   if (string.IsNullOrWhiteSpace(rawPin))
   {
     throw new Exception("PIN NOT SET");

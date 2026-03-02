@@ -307,6 +307,7 @@ public class FiatClient : IFiatClient
   private readonly string _authUrl = "https://mfa.fcl-01.fcagcv.com"; // for pin
   private readonly string _locale = "de_de"; // for pin
   private readonly RegionEndpoint _awsEndpoint = RegionEndpoint.EUWest1; 
+  private readonly string _pinEncoding;
   
   private readonly string _user;
   private readonly string _password;
@@ -318,12 +319,13 @@ public class FiatClient : IFiatClient
 
   private (string userUid, ImmutableCredentials awsCredentials)? _loginInfo = null;
 
-  public FiatClient(string user, string password, FcaBrand brand = FcaBrand.Fiat, FcaRegion region = FcaRegion.Europe)
+  public FiatClient(string user, string password, FcaBrand brand = FcaBrand.Fiat, FcaRegion region = FcaRegion.Europe, string pinEncoding = "base64")
   {
     _user = user;
     _password = password;
     _brand = brand;
     _region = region;
+    _pinEncoding = pinEncoding;
 
     if (_brand == FcaBrand.Ram)
     {
@@ -533,15 +535,37 @@ public class FiatClient : IFiatClient
     
     var (userUid, awsCredentials) = _loginInfo.Value;
 
-    var data = new
+    var rawPin = pin?.Trim();
+    if (string.IsNullOrWhiteSpace(rawPin))
+      throw new Exception("PIN NOT SET (empty after trim)");
+
+    string encodedPin;
+    var mode = (_pinEncoding ?? "base64").Trim().ToLowerInvariant(); // OR pass it in / store from config
+    encodedPin = mode switch
     {
-      pin = Convert.ToBase64String(Encoding.UTF8.GetBytes(pin))
+      "raw" => rawPin,
+      "base64" => Convert.ToBase64String(Encoding.UTF8.GetBytes(rawPin)),
+      _ => rawPin
     };
 
-    var pinAuthResponse = await _authUrl
+    Log.Information("PIN auth: mode={Mode} rawLen={RawLen} sentLen={SentLen} numeric={Numeric}",
+      mode, rawPin.Length, encodedPin.Length, rawPin.All(char.IsDigit));
+
+    var data = new { pin = encodedPin };
+
+    // var pinAuthResponse = await _authUrl
+    //   .AppendPathSegments("v1", "accounts", userUid, "ignite", "pin", "authenticate")
+    //   .WithHeaders(WithAwsDefaultParameter(_authApiKey))
+    //   .AwsSign(awsCredentials, _awsEndpoint, data)
+    //   .PostJsonAsync(data)
+    //   .ReceiveJson<FcaPinAuthResponse>();
+
+    var req = _authUrl
       .AppendPathSegments("v1", "accounts", userUid, "ignite", "pin", "authenticate")
       .WithHeaders(WithAwsDefaultParameter(_authApiKey))
-      .AwsSign(awsCredentials, _awsEndpoint, data)
+      .AwsSign(awsCredentials, _awsEndpoint);
+
+    var pinAuthResponse = await req
       .PostJsonAsync(data)
       .ReceiveJson<FcaPinAuthResponse>();
 
@@ -556,7 +580,7 @@ public class FiatClient : IFiatClient
     var commandResponse = await _apiUrl
       .AppendPathSegments("v1", "accounts", userUid, "vehicles", vin, action)
       .WithHeaders(WithAwsDefaultParameter(_apiKey))
-      .AwsSign(awsCredentials, _awsEndpoint, json)
+      .AwsSign(awsCredentials, _awsEndpoint)
       .PostJsonAsync(json)
       .ReceiveJson<FcaCommandResponse>();
 

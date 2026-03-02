@@ -41,21 +41,44 @@ public static class Helper
     return result;
   }
 
-  public static IFlurlRequest AwsSign(this IFlurlRequest request, ImmutableCredentials credentials,
-    RegionEndpoint regionEndpoint, object? data = null)
-  {
-    request.BeforeCall(call =>
+  // public static IFlurlRequest AwsSign(this IFlurlRequest request, ImmutableCredentials credentials,
+  //   RegionEndpoint regionEndpoint, object? data = null)
+  // {
+  //   request.BeforeCall(call =>
+  //   {
+  //     var json = data == null ? "" : JsonConvert.SerializeObject(data);
+  //     call.HttpRequestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
+  //
+  //     Signer.Sign(call.HttpRequestMessage,
+  //       null, new List<KeyValuePair<string, IEnumerable<string>>>(),
+  //       DateTime.Now, regionEndpoint.SystemName, "execute-api", credentials);
+  //   });
+  //
+  //   return request;
+  // }
+  public static IFlurlRequest AwsSign(
+      this IFlurlRequest request,
+      ImmutableCredentials credentials,
+      RegionEndpoint regionEndpoint)
     {
-      var json = data == null ? "" : JsonConvert.SerializeObject(data);
-      call.HttpRequestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
+    Log.Information("Signing SigV4: region={Region} utc={Utc}",
+          regionEndpoint.SystemName, DateTime.UtcNow.ToString("o"));
 
-      Signer.Sign(call.HttpRequestMessage,
-        null, new List<KeyValuePair<string, IEnumerable<string>>>(),
-        DateTime.Now, regionEndpoint.SystemName, "execute-api", credentials);
-    });
+      request.BeforeCall(call =>
+      {
+        Signer.Sign(
+          call.HttpRequestMessage,
+          null,
+          new List<KeyValuePair<string, IEnumerable<string>>>(),
+          DateTime.UtcNow,
+          regionEndpoint.SystemName,
+          "execute-api",
+          credentials
+        );
+      });
 
-    return request;
-  }
+      return request;
+    }
 
   public static string Dump(this object? o)
   {
