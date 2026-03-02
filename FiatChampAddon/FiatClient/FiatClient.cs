@@ -337,7 +337,7 @@ public class FiatClient : IFiatClient
       _authApiKey = "JWRYW7IYhW9v0RqDghQSx4UcRYRILNmc8zAuh5ys"; // UNKNOWN
       _authUrl = "https://mfa.fcl-01.fcagcv.com"; // UNKNOWN
       _awsEndpoint = RegionEndpoint.USEast1;
-      _locale = "en_us";
+      _locale = "en_US";
     }
     else if(_brand == FcaBrand.Dodge)
     {
@@ -596,7 +596,7 @@ public class FiatClient : IFiatClient
     var vehicleResponse = await _apiUrl
       .WithClient(_defaultHttpClient)
       .AppendPathSegments("v4", "accounts", userUid, "vehicles")
-      .SetQueryParam("stage", "ALL")
+      .SetQueryParam("locale", _locale)
       .WithHeaders(WithAwsDefaultParameter(_apiKey))
       .AwsSign(awsCredentials, _awsEndpoint)
       .GetJsonAsync<VehicleResponse>();
